@@ -10,12 +10,13 @@ class JObject extends Class{
   Pointer _ptr;
 
   //init target class
-  JObject(String className, Pointer ptr) : super(className) {
-    _ptr = ptr == null ? nativeCreateClass(super.classUtf8()) : ptr;
+  JObject(String className, Pointer ptr, [List args]) : super(className) {
+    ArgumentPointers pointers = argsToPointers(args);
+    _ptr = ptr == null ? nativeCreateClass(super.classUtf8(), pointers.argPointers, pointers.typePointers) : ptr;
     JObjectPool.sInstance.retain(this);
   }
 
-  Pointer get pointer{
+  Pointer get pointer {
     return _ptr;
   }
 
@@ -23,31 +24,30 @@ class JObject extends Class{
     Pointer<Utf8> methodNamePtr = Utf8.toUtf8(methodName);
     Pointer<Utf8> returnTypePtr = Utf8.toUtf8(returnType);
 
-    Pointer<Pointer<Void>> pointers;
-    Pointer<Pointer<Utf8>> typePointers;
-    if (args != null) {
-      pointers = allocate<Pointer<Void>>(count: args.length + 1);
-      typePointers = allocate<Pointer<Utf8>>(count: args.length + 1);
-      for (var i = 0; i < args.length; i++) {
-        var arg = args[i];
-        if (arg == null) {
-          throw 'One of args list is null';
-        }
-        storeValueToPointer(arg, pointers.elementAt(i), typePointers.elementAt(i));
-      }
-      pointers.elementAt(args.length).value = nullptr;
-      typePointers.elementAt(args.length).value = nullptr;
-    }
+    ArgumentPointers pointers = argsToPointers(args);
     Pointer<Void> invokeMethodRet =
-        nativeInvokeNeo(_ptr, methodNamePtr, pointers, typePointers, returnTypePtr);
+        nativeInvokeNeo(_ptr, methodNamePtr, pointers.argPointers, pointers.typePointers, returnTypePtr);
     dynamic result = loadValueFromPointer(invokeMethodRet, returnType);
     if (pointers != null) {
-      free(pointers);
-    }
-    if (typePointers != null) {
-      free(typePointers);
+      free(pointers.argPointers);
+      free(pointers.typePointers);
     }
     return result;
+  }
+
+  ArgumentPointers argsToPointers(List args) {
+    int argLength = args?.length ?? 0;
+    Pointer<Pointer<Void>> argPointers = allocate<Pointer<Void>>(count: argLength + 1);
+    Pointer<Pointer<Utf8>> typePointers = allocate<Pointer<Utf8>>(count: argLength + 1);
+    if (args != null) {
+      for (var i = 0; i < args.length; i++) {
+        var arg = args[i];
+        storeValueToPointer(arg, argPointers.elementAt(i), typePointers.elementAt(i));
+      }
+    }
+    argPointers.elementAt(argLength).value = nullptr;
+    typePointers.elementAt(argLength).value = nullptr;
+    return ArgumentPointers(argPointers, typePointers);
   }
 
   release() {
@@ -63,4 +63,11 @@ class JObject extends Class{
     }
     return 1;
   }
+}
+
+class ArgumentPointers {
+  Pointer<Pointer<Void>> argPointers;
+  Pointer<Pointer<Utf8>> typePointers;
+
+  ArgumentPointers(this.argPointers, this.typePointers);
 }

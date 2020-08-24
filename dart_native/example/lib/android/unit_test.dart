@@ -1,3 +1,4 @@
+import 'package:dart_native_example/android/ConstructorTest.dart';
 import 'package:dart_native_example/android/runtimestub.dart';
 import 'package:dart_native_example/android/entity.dart';
 
@@ -43,4 +44,6 @@ testAndroid(RuntimeStub stub) {
   entity.release();
 
   print('new entity get time : ${stub.getTime(new Entity())}');
+
+  ConstructorTest constructor = new ConstructorTest("ss", 10, 20, true);
 }
